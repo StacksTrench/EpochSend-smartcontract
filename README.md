@@ -1,76 +1,124 @@
-# ForgeX
+# ForgeX: Vult
 
-A decentralized vault platform enabling users to create multiple ERC-4626 compliant vaults for automated yield generation on Base Mainnet.
+**Yield-Native Liquidity Hooks on Base** — a DeFi protocol that stacks two yield sources into one vault position, powered by an AI strategy engine.
 
-## Scenario
+1. **ERC-4626 vault yield** — deposits routed to Aave and Compound for lending interest
+2. **Uniswap v4 swap fee yield** — VultHook intercepts swaps and donates accrued vault yield back to LPs
 
-A. On-chain Dollar Savings for Africans
-
-Users deposit USDC/USDT
-
-Receive a deposit token (dToken)
-
-Earn yield from low-risk DeFi
-
-Fully transparent reserves on-chain
-
-👉 Think: PiggyVest + Risevest + USDC, but on-chain
-
-
-
-## Overview
-
-ForgeX is a comprehensive DeFi platform that allows users to:
-
-- **Create Multiple Vaults**: Each user can create multiple personal ERC-4626 compliant vaults
-- **Automated Yield Generation**: Deploy assets to DeFi protocols (Aave, Compound, Uniswap) automatically
-- **ERC-4626 Standard**: Industry-standard tokenized vault interface for maximum interoperability
-- **Share-Based Ownership**: Transferable ERC-20 vault shares representing ownership
-- **Protocol Allocations**: Configure how assets are distributed across different DeFi protocols
+---
 
 ## Project Structure
 
 ```
-ForgeX/
-├── smartcontract/          # Solidity smart contracts
-│   ├── contracts/          # Contract source files
-│   ├── test/              # Contract tests
-│   ├── scripts/           # Deployment scripts
-│   └── README.md          # Smart contract documentation
+forgeX/
+├── smartcontract/          # Solidity smart contracts (Hardhat + Foundry)
+│   ├── contracts/
+│   │   ├── VaultFactory.sol      # User registration + vault deployment factory
+│   │   ├── UserVault.sol         # ERC-4626 compliant tokenized vault
+│   │   ├── vult/VultHook.sol     # Uniswap v4 hook for yield harvesting
+│   │   └── interfaces/           # Protocol interfaces (Aave, Compound, ERC-4626)
+│   ├── test/                     # Hardhat + Foundry tests
+│   └── README.md
 │
-└── frontend/              # Next.js frontend application
-    ├── app/               # Next.js app router pages
-    ├── components/        # React components
-    ├── config/            # Wagmi and wallet configuration
-    └── README.md          # Frontend documentation
+├── frontend/               # Next.js 16 frontend
+│   ├── app/                # App Router pages (8 routes)
+│   ├── components/         # React components
+│   ├── hooks/              # Custom wagmi hooks
+│   ├── lib/                # ABIs, constants, AI client
+│   └── README.md
+│
+└── ai-backend/             # Python FastAPI + Claude AI
+    ├── main.py             # 7 API endpoints
+    ├── ai_engine.py        # Claude Sonnet integration
+    ├── chain.py            # On-chain data via Web3.py
+    └── README.md
 ```
+
+---
+
+## Deployed Contracts — Base Mainnet
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| VaultFactory | [`0x8374257da04F00ABAf74E13EFE5A17B0f08EC226`](https://basescan.org/address/0x8374257da04F00ABAf74E13EFE5A17B0f08EC226) | User registration + vault deployment |
+| VultHook | [`0xe988b6816d94C10377779F08f2ab08925cE96D09`](https://basescan.org/address/0xe988b6816d94C10377779F08f2ab08925cE96D09) | Uniswap v4 yield harvesting hook |
+| Base PoolManager | [`0x498581Ff718922c3f8e6A2444956aF099B2652b2`](https://basescan.org/address/0x498581Ff718922c3f8e6A2444956aF099B2652b2) | Uniswap v4 reference |
+
+---
 
 ## Tech Stack
 
 ### Smart Contracts
-- **Language:** Solidity ^0.8.20
-- **Framework:** Hardhat
-- **Network:** Base Mainnet
-- **Standards:** ERC-4626, ERC-20
+- **Language:** Solidity ^0.8.20 / ^0.8.24
+- **Frameworks:** Hardhat + Foundry
+- **Network:** Base Mainnet (Chain ID 8453)
+- **Standards:** ERC-4626, ERC-20, Uniswap v4 IHooks
+- **Integrations:** Aave V3, Compound V2, Chainlink Price Feeds
 
 ### Frontend
-- **Framework:** Next.js 14 (App Router)
+- **Framework:** Next.js 16.1.1 (App Router)
 - **Language:** TypeScript
-- **Styling:** Tailwind CSS (Tri-Tone Design System)
-- **Web3:** wagmi, viem, Reown AppKit
+- **Styling:** Tailwind CSS v4
+- **Web3:** Wagmi v3, Viem v2, Reown AppKit
+- **Animations:** Framer Motion
+- **Deployed:** Vercel
+
+### AI Backend
+- **Framework:** FastAPI (Python 3.11)
+- **AI:** Anthropic Claude (claude-sonnet-4)
+- **On-chain reads:** Web3.py
+- **Deployed:** Render — `https://forgex-14vp.onrender.com`
+
+---
+
+## Features
+
+### Smart Contracts
+- Multi-vault creation per user (unlimited)
+- User registration system (username, bio, timestamp)
+- ERC-4626 standard — deposit/withdraw/mint/redeem with share accounting
+- Aave V3 and Compound V2 protocol integration for lending yield
+- Chainlink Price Feeds for real-time USD valuations
+- VultHook: `afterAddLiquidity` deploys idle LP liquidity into vaults; `afterSwap` harvests accrued yield and donates back to LPs
+- Pause/unpause emergency controls
+- Owner-based governance with `transferOwnership`
+
+### Frontend (8 Pages)
+- **Landing** — marketing page, wallet connect, registration flow
+- **Dashboard** — vault grid, AI insights panel (Insights / Strategy / Risk tabs), user profile
+- **Vaults** — full vault management with Deposit / Withdraw / Allocate / Share / Admin actions
+- **Analytics** — per-vault yield %, USD value, share price, Aave/Compound/Idle allocation bar
+- **Portfolio** — aggregated view: total USD, combined yield %, portfolio-wide allocation bar, per-vault table
+- **Compare** — side-by-side vault comparison grid (all metrics, all vaults)
+- **History** — on-chain Deposit/Withdraw event log via `getLogs`, linked to BaseScan
+- **VultHook** — hook contract addresses, 3-step explainer, hook flags, specs
+
+### AI Backend (7 Endpoints)
+- `GET /api/portfolio/{address}` — on-chain portfolio via Web3.py
+- `POST /api/insights` — bullet-point dashboard insights
+- `POST /api/strategy` — yield strategy advice (conservative/balanced/aggressive)
+- `POST /api/risk` — risk score 1–10 + breakdown
+- `POST /api/chat` — conversational assistant with history
+- `GET /api/platform-stats` — protocol-wide statistics
+- `GET /health` — health check
+
+---
 
 ## Design System
 
-ForgeX utilizes a vibrant, high-contrast tri-tone color scheme:
+ForgeX uses an **olive green** theme:
 
-- **Magenta (Primary)**: `#FF007A` — Main brand identity and primary action elements.
-- **Cyan-Blue (Secondary)**: `#0EA7CB` — AION Legacy color used for secondary navigation and branding.
-- **Electric Cyan (Accent)**: `#00F0FF` — Neon highlights, gradients, and interactive glow effects.
+- **Primary:** `#8FA828` — main brand, CTAs, active states
+- **Background:** `#090A06` — near-black dark base
+- **Card:** `#181B0C` — elevated surfaces
+- **Foreground:** `#E8E2CF` — warm off-white text
+- **Light mode:** full warm palette togglable via ThemeToggle in navbar
+
+---
 
 ## Quick Start
 
 ### Smart Contracts
-
 ```bash
 cd smartcontract
 npm install
@@ -79,227 +127,70 @@ npx hardhat test
 ```
 
 ### Frontend
-
 ```bash
 cd frontend
 npm install
+# create .env.local (see Environment Variables)
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## Features
-
-### VaultFactory Contract
-- Multi-vault creation for registered users
-- User registration system with username and bio
-- Protocol address management (Aave, Compound, Uniswap, WETH)
-- Admin system for protocol configuration
-- Vault tracking and ownership management
-
-### UserVault Contract (ERC-4626)
-- ERC-4626 standard compliance for tokenized vaults
-- ERC-20 share tokens representing vault ownership
-- Deposit/Withdraw/Mint/Redeem operations
-- Protocol integration for yield generation
-- Allocation management across DeFi protocols
-- Pause/unpause functionality
-
-### Frontend Features
-- Wallet connection (MetaMask, WalletConnect)
-- Multi-vault dashboard
-- Vault creation interface
-- Deposit and withdrawal operations
-- Protocol allocation management
-- Share transfer functionality
-- Transaction history
-
-## Network Configuration
-
-### Base Mainnet
-- **Chain ID:** 8453
-- **RPC URL:** `https://mainnet.base.org`
-- **Explorer:** [BaseScan](https://basescan.org/)
-
-## Development
-
-### Smart Contracts
-
-See [smartcontract/README.md](./smartcontract/README.md) for detailed smart contract documentation.
-
-**Key Commands:**
+### AI Backend
 ```bash
-npm run compile      # Compile contracts
-npm run test         # Run tests
-npm run deploy       # Deploy to Base Mainnet
+cd ai-backend
+pip install -r requirements.txt
+# create .env (see Environment Variables)
+uvicorn main:app --reload
 ```
 
-### Frontend
-
-See [frontend/README.md](./frontend/README.md) for detailed frontend documentation.
-
-**Key Commands:**
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run lint         # Run linter
-```
-
-## Contributing
-
-We welcome contributions! To get started:
-
-1. Pick an issue from the respective `ISSUES.md` files:
-   - [Smart Contract Issues](./smartcontract/ISSUES.md)
-   - [Frontend Issues](./frontend/ISSUES.md)
-2. Create a branch: `issue/<number>-short-description`
-3. Implement your changes following the acceptance criteria
-4. Write tests for your changes
-5. Submit a PR with the issue number in the title/description
+---
 
 ## Environment Variables
 
-### Smart Contracts (.env)
+### Frontend (`.env.local`)
+```env
+NEXT_PUBLIC_REOWN_PROJECT_ID=your_reown_project_id
+NEXT_PUBLIC_AI_BACKEND_URL=https://forgex-14vp.onrender.com
+```
+
+### Smart Contracts (`.env`)
 ```env
 PRIVATE_KEY=your_private_key
 BASE_RPC_URL=https://mainnet.base.org
 ETHERSCAN_API_KEY=your_etherscan_api_key
 ```
 
-### Frontend (.env.local)
+### AI Backend (`.env`)
 ```env
-NEXT_PUBLIC_REOWN_PROJECT_ID=your_project_id
-NEXT_PUBLIC_VAULT_FACTORY_ADDRESS=0x...
-NEXT_PUBLIC_NETWORK=base
+ANTHROPIC_API_KEY=sk-ant-...
+BASE_RPC_URL=https://mainnet.base.org
+VAULT_FACTORY_ADDRESS=0x8374257da04F00ABAf74E13EFE5A17B0f08EC226
 ```
 
-**Note:** Never commit your private keys or `.env` files to version control!
+---
 
-## Security
+## How Yield Stacking Works
 
-- All contracts follow best practices
-- Access control implemented for admin functions
-- Reentrancy guards on critical functions
-- Input validation on all user inputs
-- Comprehensive test coverage
+```
+LP adds liquidity → VultHook deposits into ForgeX vault → Vault deploys to Aave/Compound
+                                                                ↓
+LP gets swap fees ← VultHook donates yield back ← Vault earns lending interest
+```
 
-**Note:** Contracts should be audited before mainnet deployment.
-
-## Future Enhancements
-
-### Chainlink Integration Roadmap
-
-ForgeX is designed to integrate with Chainlink services for enhanced functionality and automation. The following enhancements are planned for future releases:
-
-#### Phase 1: Price Feeds (In Progress)
-**Status:** Planned for next release
-
-- **Chainlink Price Feeds Integration**
-  - Real-time USD valuation of vault assets
-  - Accurate share pricing in USD terms
-  - Multi-asset vault support with proper pricing
-  - Portfolio performance tracking
-
-**Implementation:**
-- Add Chainlink Price Feed to `UserVault.sol`
-- Implement `getTotalValueUSD()` and `getSharePriceUSD()` functions
-- Display USD values in frontend dashboard
-- Enable better portfolio tracking and analytics
-
-**Files to modify:**
-- `contracts/UserVault.sol` - Add price feed integration
-- `contracts/VaultFactory.sol` - Store price feed addresses
-- Frontend components - Display USD values
+User vaults and hook vaults are separate: users deposit into personal `UserVault` instances and manually allocate to Aave/Compound. VultHook operates at the Uniswap pool level automatically — no user action needed on that side.
 
 ---
 
-#### Phase 2: Automation (High Impact)
-**Status:** Future consideration
+## Network Configuration
 
-- **Chainlink Automation (formerly Keepers)**
-  - Automated vault rebalancing
-  - Periodic yield harvesting
-  - Protocol switching based on yield
-  - Gas-optimized execution
-
-**Implementation:**
-- Implement `checkUpkeep()` and `performUpkeep()` in `UserVault.sol`
-- Set up rebalancing logic based on protocol yields
-- Register vaults with Chainlink Automation network
-- Automated yield optimization without manual intervention
-
-**Files to modify:**
-- `contracts/UserVault.sol` - Add automation interface and rebalancing logic
-- `contracts/VaultFactory.sol` - Automation registry management
-
-**Benefits:**
-- Hands-free vault management
-- Optimal yield allocation
-- Reduced gas costs through batching
-- 24/7 monitoring and execution
+- **Primary:** Base Mainnet — Chain ID 8453 — [BaseScan](https://basescan.org/)
+- **Testnet:** Base Sepolia — Chain ID 84532
 
 ---
 
-#### Phase 3: VRF (Optional - Gamification)
-**Status:** Future consideration
+## Repository
 
-- **Chainlink VRF (Verifiable Random Function)**
-  - Lottery/reward system for vault holders
-  - Random protocol selection for diversification
-  - Fair incentive distribution mechanisms
-  - Gamification features
-
-**Implementation:**
-- Add lottery/reward system to `VaultFactory.sol`
-- Implement VRF for provably fair random selection
-- Create incentive mechanisms for long-term holders
-- Monthly/quarterly reward distributions
-
-**Files to modify:**
-- `contracts/VaultFactory.sol` - Add VRF integration and lottery logic
-- Frontend - Lottery participation interface
-
-**Use Cases:**
-- Monthly lottery for active vault holders
-- Random bonus yield distribution
-- Fair protocol allocation
-- Community engagement rewards
-
----
-
-#### Phase 4: Uniswap v4 Hook Integration (UHI Project)
-**Status:** In Progress (UHI8 Hookathon Start: March 2, 2026)
-
-- **Forge-Native Yield Hooks**
-  - Enable ForgeX ERC-4626 vault shares to serve as active liquidity in Uniswap v4 pools.
-  - Implement **Yield-Aware Hooks** that distribute vault-accrued interest to LPs.
-  - Maximize capital efficiency for African savings users by layering trading fees on top of DeFi yield.
-
-**Implementation:**
-- Integrate `IHooks` interface with `UserVault.sol` logic.
-- Build specialized liquidity pools for vault-wrapped assets.
-- Deploy UHI capstone project on Base Mainnet.
-
----
-
-### Additional Planned Features
-
-- **Multi-signature Admin Controls** - Enhanced security for protocol management
-- **Governance System** - Community-driven protocol decisions
-- **Advanced Analytics** - Detailed performance metrics and historical data
-- **Mobile App** - Native mobile experience for iOS and Android
-- **Subgraph Integration** - Faster data queries and historical tracking
+[https://github.com/BitBand-Labs/forgeX](https://github.com/BitBand-Labs/forgeX)
 
 ## License
 
-MIT License - see LICENSE file for details.
-
-## Links
-
-- **Repository:** [https://github.com/thebabalola/forge](https://github.com/thebabalola/forge)
-- **BaseScan Explorer:** [https://basescan.org/](https://basescan.org/)
-- **Documentation:** See individual README files in `smartcontract/` and `frontend/` directories
-
-## Support
-
-For questions or issues, please open an issue on GitHub or refer to the respective ISSUES.md files for planned features and known issues.
+MIT License
