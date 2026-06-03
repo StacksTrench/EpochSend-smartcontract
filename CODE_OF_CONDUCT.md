@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-We pledge to make participation in the **PayWhen** project a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
+We pledge to make participation in the **EpochSend** project a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
 We are committed to building an **intent-based payment protocol** that allows users to define conditions under which funds are automatically executed on-chain.
 
@@ -28,4 +28,4 @@ This Code of Conduct is adapted from the [Contributor Covenant][homepage], versi
 
 ---
 
-_PayWhen — Intent-Based Payment Protocol_
+_EpochSend — Intent-Based Payment Protocol_

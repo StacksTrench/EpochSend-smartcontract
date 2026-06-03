@@ -1,183 +1,76 @@
 # 📘 Product Requirements Document (PRD)
 
-## Product Name: PayWhen
+## Product Name: EpochSend Smart Contracts
 
 ---
 
 ## 🧠 Overview
 
-PayWhen is an intent-based payment protocol on **Stellar** that allows users to define conditions under which funds are automatically executed on-chain.
+The **EpochSend Smart Contracts** form the decentralized foundation of the EpochSend protocol on the Stellar Network. 
 
-Instead of sending money immediately, users define rules such as:
-
-- “Send when delivery is confirmed”
-- “Pay every Friday”
-- “Release funds after milestone completion”
-
-The system converts user intent into enforceable on-chain payment logic using **Soroban smart contracts**.
+While the frontend captures user intent and the backend listens to external APIs, the smart contract is the ultimate arbiter of truth. It locks funds safely on-chain and mathematically guarantees that those funds will only be released if the strictly defined conditions are met.
 
 ---
 
 ## 🎯 Problem Statement
 
-Payments today are:
+Payments today are fundamentally flawed for complex transactions. Once money is sent, it's gone. If an agreement is broken, the sender has no recourse. Centralized escrow services solve this but charge massive fees and require blind trust.
 
-- Manual
-- Trust-based
-- Non-conditional
-
-Users often rely on:
-
-- Verbal agreements, manual follow-ups, and third-party intermediaries — creating friction, disputes, and inefficiency.
+To enable programmable, conditional payments without intermediaries, we need a robust smart contract that holds assets trustlessly and executes logic based on irrefutable cryptographic proofs.
 
 ---
 
-## 💡 Solution
+## 💡 The EpochSend Solution
 
-Enable programmable payments based on conditions on the Stellar network.
+A suite of Soroban smart contracts written in Rust.
 
-Users define:
-
-- Recipient
-- Amount
-- Trigger condition
-
-The protocol:
-
-- Holds funds in escrow (Soroban contract)
-- Monitors condition
-- Executes payment automatically
+When a user creates a payment intent:
+1. The `EscrowFactory` contract deploys or allocates a new escrow state.
+2. Funds (USDC or XLM) are securely locked within the contract.
+3. The contract registers the `Trigger Condition` (e.g., a specific timestamp, a required signature from the recipient, or an Oracle's cryptographic approval).
+4. The contract acts passively until invoked to `execute` (releasing funds to the recipient) or `refund` (returning funds to the sender if the timeout is breached).
 
 ---
 
-## 🧩 Core Features
+## 🧩 Core Features (MVP)
 
-### 1. Conditional Payment Contracts (Soroban)
+### 1. The Escrow State Machine
+- Stores sender, recipient, asset type, amount, and the exact trigger condition.
+- Protects against reentrancy attacks and double-spending.
 
-- Create payment with condition
-- Funds locked in escrow
-- Executes when condition is met
+### 2. Supported Cryptographic Conditions
+**Phase 1: Time & Trust**
+- **Time-based**: `execute` fails if the ledger timestamp is less than the unlock time.
+- **Manual Trigger**: `execute` requires a cryptographic signature from a designated arbiter.
 
----
+**Phase 2: Oracles**
+- **Oracle Verification**: The contract accepts signatures from a designated server-side Oracle Wallet to prove that a real-world event (e.g., FedEx delivery) has occurred.
 
-### 2. Supported Conditions (MVP)
-
-#### Time-based
-
-- Execute at timestamp
-- Recurring payments (weekly/monthly)
-
-#### Manual Trigger (trusted party)
-
-- Recipient confirms delivery
-- Multi-party approval
-
-#### Oracle-based (Phase 2)
-
-- GPS/location verification
-- API-based triggers (via Soroban-compatible oracles)
+### 3. Automated Refunds (The Safety Net)
+- Every escrow must have a `dispute_timeout`.
+- If the trigger condition is never met, the sender can call `refund` to effortlessly retrieve their assets, ensuring funds are never permanently frozen.
 
 ---
 
-### 3. Payment Types
+## 🔐 Security Model
 
-- One-time conditional payments
-- Recurring subscriptions
-- Group contributions (threshold unlock)
-
----
-
-### 4. Escrow System
-
-- Funds locked in Soroban smart contract
-- Refund logic if condition fails
-- Optional dispute timeout
-
----
-
-## 🔁 User Flow
-
-1. User selects “Create Payment”
-2. Inputs:
-   - Amount
-   - Recipient
-   - Condition
-3. Funds are deposited into Soroban contract
-4. Condition monitored
-5. Payment executes automatically on Stellar
-
----
-
-## 🏗️ Architecture
-
-### Smart Contracts (Soroban)
-
-- `PaymentFactory`
-  - Creates new payment contracts
-
-- `ConditionalPayment`
-  - Stores:
-    - Sender
-    - Recipient
-    - Amount
-    - Condition logic
-
----
-
-### Frontend
-
-- Next.js + TypeScript
-- Wallet connection (Freighter Wallet / Stellar SDK)
-- Mobile-first UI
-
----
-
-## 🔐 Security Considerations
-
-- Reentrancy protection
-- Escrow fund safety
-- Condition validation
-- Timeout fallback logic
-
----
-
-## 📊 Success Metrics
-
-- Number of payments created
-- Total transaction volume (USDC/XLM)
-- Unique users
-- Execution success rate
+- **No Centralized Custody**: The contract code controls the assets. No developer or administrator can freeze or steal the funds.
+- **Soroban Auth Framework**: Strict utilization of `require_auth()` to ensure only the authorized parties can trigger state changes.
+- **Immutable Logic**: Once compiled to WASM and deployed, the core rules of execution cannot be covertly altered.
 
 ---
 
 ## 🚀 Roadmap
 
-### Phase 1 (MVP)
+### Phase 1: MVP (Current)
+- Basic `ConditionalPayment` contract.
+- Time-based and Manual conditions.
+- Factory pattern for deploying new escrows.
 
-- Time-based payments
-- Manual trigger
-- Simple UI on Stellar
+### Phase 2: Advanced Integrations
+- Implementing the Oracle signature verification logic.
+- Adding recurring payment smart contract templates.
 
-### Phase 2
-
-- Oracle integrations
-- Recurring payments
-- Notifications
-
-### Phase 3
-
-- SDK for developers
-- API integrations
-- Cross-app triggers
-
----
-
-## 🎯 Positioning
-
-A mobile-first payment protocol that transforms user intent into automated financial execution on the Stellar network.
-
----
-
-## 🧠 Key Differentiator
-
-Not just sending money — but defining behavior that money follows.
+### Phase 3: Multi-Sig & Arbitration
+- N-of-M multi-signature approvals for high-value escrows.
+- Decentralized arbitration fallback mechanisms.
