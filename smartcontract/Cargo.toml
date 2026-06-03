@@ -1,5 +1,5 @@
 [package]
-name = "paywhen-contract"
+name = "epochsend-contract"
 version = "0.1.0"
 edition = "2021"
 
