@@ -1,0 +1,28 @@
+name: EpochSend Smart Contract CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  rust-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./smartcontract
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: Build Soroban Contract
+      run: cargo build --target wasm32-unknown-unknown --release
+
+    - name: Run tests
+      run: cargo test
