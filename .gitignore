@@ -12,3 +12,10 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.pem
+
+# Rust & Soroban Artifacts
+/target/
+/smartcontract/target/
+.soroban/
+test_snapshots/
+**/*.rs.bk
