@@ -17,74 +17,39 @@ fn create_token<'a>(
 }
 
 #[test]
-fn test_manual_execute() {
+fn test_create_intent() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, ConditionalPayment);
-    let client = ConditionalPaymentClient::new(&env, &contract_id);
+    let contract_id = env.register_contract(None, EpochSendContract);
+    let client = EpochSendContractClient::new(&env, &contract_id);
 
+    let admin = Address::generate(&env);
     let sender = Address::generate(&env);
     let recipient = Address::generate(&env);
     let arbiter = Address::generate(&env);
-    let admin = Address::generate(&env);
+
+    client.initialize(&admin);
 
     let (token, token_admin) = create_token(&env, &admin);
-    
     token_admin.mint(&sender, &1000);
 
-    client.create_escrow(
+    let intent_id = client.create_intent(
         &sender,
         &recipient,
         &token.address,
         &1000,
-        &ConditionType::Manual,
-        &0,
+        &0, // expiration
         &arbiter,
     );
 
+    assert_eq!(intent_id, 1);
     assert_eq!(token.balance(&sender), 0);
     assert_eq!(token.balance(&contract_id), 1000);
 
-    // Arbiter executes
-    client.execute();
-
-    assert_eq!(token.balance(&contract_id), 0);
-    assert_eq!(token.balance(&recipient), 1000);
-}
-
-#[test]
-fn test_refund() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, ConditionalPayment);
-    let client = ConditionalPaymentClient::new(&env, &contract_id);
-
-    let sender = Address::generate(&env);
-    let recipient = Address::generate(&env);
-    let arbiter = Address::generate(&env);
-    let admin = Address::generate(&env);
-
-    let (token, token_admin) = create_token(&env, &admin);
-    
-    token_admin.mint(&sender, &1000);
-
-    client.create_escrow(
-        &sender,
-        &recipient,
-        &token.address,
-        &1000,
-        &ConditionType::Manual,
-        &0,
-        &arbiter,
-    );
-
-    assert_eq!(token.balance(&sender), 0);
-
-    // Sender refunds
-    client.refund();
-
-    assert_eq!(token.balance(&contract_id), 0);
-    assert_eq!(token.balance(&sender), 1000);
+    let intent = client.get_intent(&intent_id).unwrap();
+    assert_eq!(intent.sender, sender);
+    assert_eq!(intent.recipient, recipient);
+    assert_eq!(intent.amount, 1000);
+    assert_eq!(intent.status, IntentStatus::Pending);
 }
