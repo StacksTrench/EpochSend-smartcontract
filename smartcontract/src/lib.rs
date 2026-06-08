@@ -1,114 +1,95 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env};
+use soroban_sdk::{contract, contractimpl, contracttype, token, Address, BytesN, Env};
 
 #[contracttype]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
-    Sender,
-    Recipient,
-    Amount,
-    ExecuteAt,
-    Arbiter,
-    ConditionType,
-    Executed,
-    Refunded,
-    Token,
+    Admin,
+    IntentCounter,
+    Intent(u64),
 }
 
 #[contracttype]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ConditionType {
-    Timestamp = 0,
-    Manual = 1,
+pub enum IntentStatus {
+    Pending = 0,
+    Executed = 1,
+    Refunded = 2,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Intent {
+    pub sender: Address,
+    pub recipient: Address,
+    pub asset: Address,
+    pub amount: i128,
+    pub expiration: u64,
+    pub oracle_id: Address,
+    pub status: IntentStatus,
 }
 
 #[contract]
-pub struct ConditionalPayment;
+pub struct EpochSendContract;
 
 #[contractimpl]
-impl ConditionalPayment {
-    pub fn create_escrow(
+impl EpochSendContract {
+    pub fn initialize(env: Env, admin: Address) {
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("Already initialized");
+        }
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::IntentCounter, &0u64);
+    }
+
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    pub fn create_intent(
         env: Env,
         sender: Address,
         recipient: Address,
-        token: Address,
+        asset: Address,
         amount: i128,
-        condition_type: ConditionType,
-        condition_data: u64,
-        arbiter: Address,
-    ) {
+        expiration: u64,
+        oracle_id: Address,
+    ) -> u64 {
         sender.require_auth();
 
-        if env.storage().instance().has(&DataKey::Sender) {
-            panic!("Escrow already initialized");
+        if amount <= 0 {
+            panic!("Amount must be greater than zero");
         }
 
-        let token_client = token::Client::new(&env, &token);
+        // Transfer tokens from sender to contract
+        let token_client = token::Client::new(&env, &asset);
         token_client.transfer(&sender, &env.current_contract_address(), &amount);
 
-        env.storage().instance().set(&DataKey::Sender, &sender);
-        env.storage().instance().set(&DataKey::Recipient, &recipient);
-        env.storage().instance().set(&DataKey::Token, &token);
-        env.storage().instance().set(&DataKey::Amount, &amount);
-        env.storage().instance().set(&DataKey::ConditionType, &condition_type);
-        env.storage().instance().set(&DataKey::Executed, &false);
-        env.storage().instance().set(&DataKey::Refunded, &false);
+        // Get and increment intent counter
+        let mut counter: u64 = env.storage().instance().get(&DataKey::IntentCounter).unwrap();
+        counter += 1;
+        env.storage().instance().set(&DataKey::IntentCounter, &counter);
 
-        if condition_type == ConditionType::Timestamp {
-            env.storage().instance().set(&DataKey::ExecuteAt, &condition_data);
-        } else if condition_type == ConditionType::Manual {
-            env.storage().instance().set(&DataKey::Arbiter, &arbiter);
-        }
+        // Save the intent securely in persistent storage
+        let intent = Intent {
+            sender,
+            recipient,
+            asset,
+            amount,
+            expiration,
+            oracle_id,
+            status: IntentStatus::Pending,
+        };
+
+        env.storage().persistent().set(&DataKey::Intent(counter), &intent);
+
+        counter
     }
 
-    pub fn execute(env: Env) {
-        let executed: bool = env.storage().instance().get(&DataKey::Executed).unwrap_or(false);
-        let refunded: bool = env.storage().instance().get(&DataKey::Refunded).unwrap_or(false);
-        
-        if executed || refunded {
-            panic!("Already executed or refunded");
-        }
-
-        let condition_type: ConditionType = env.storage().instance().get(&DataKey::ConditionType).unwrap();
-        
-        if condition_type == ConditionType::Timestamp {
-            let execute_at: u64 = env.storage().instance().get(&DataKey::ExecuteAt).unwrap();
-            if env.ledger().timestamp() < execute_at {
-                panic!("Condition not met: Timestamp not reached");
-            }
-        } else if condition_type == ConditionType::Manual {
-            let arbiter: Address = env.storage().instance().get(&DataKey::Arbiter).unwrap();
-            arbiter.require_auth();
-        }
-
-        env.storage().instance().set(&DataKey::Executed, &true);
-
-        let recipient: Address = env.storage().instance().get(&DataKey::Recipient).unwrap();
-        let token: Address = env.storage().instance().get(&DataKey::Token).unwrap();
-        let amount: i128 = env.storage().instance().get(&DataKey::Amount).unwrap();
-
-        let token_client = token::Client::new(&env, &token);
-        token_client.transfer(&env.current_contract_address(), &recipient, &amount);
-    }
-
-    pub fn refund(env: Env) {
-        let executed: bool = env.storage().instance().get(&DataKey::Executed).unwrap_or(false);
-        let refunded: bool = env.storage().instance().get(&DataKey::Refunded).unwrap_or(false);
-        
-        if executed || refunded {
-            panic!("Already executed or refunded");
-        }
-
-        let sender: Address = env.storage().instance().get(&DataKey::Sender).unwrap();
-        sender.require_auth(); 
-
-        env.storage().instance().set(&DataKey::Refunded, &true);
-
-        let token: Address = env.storage().instance().get(&DataKey::Token).unwrap();
-        let amount: i128 = env.storage().instance().get(&DataKey::Amount).unwrap();
-
-        let token_client = token::Client::new(&env, &token);
-        token_client.transfer(&env.current_contract_address(), &sender, &amount);
+    pub fn get_intent(env: Env, intent_id: u64) -> Option<Intent> {
+        env.storage().persistent().get(&DataKey::Intent(intent_id))
     }
 }
 
