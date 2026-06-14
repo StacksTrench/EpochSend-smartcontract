@@ -91,6 +91,63 @@ impl EpochSendContract {
     pub fn get_intent(env: Env, intent_id: u64) -> Option<Intent> {
         env.storage().persistent().get(&DataKey::Intent(intent_id))
     }
+
+    pub fn execute_intent(env: Env, intent_id: u64) {
+        let mut intent: Intent = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Intent(intent_id))
+            .unwrap_or_else(|| panic!("Intent not found"));
+
+        if intent.status != IntentStatus::Pending {
+            panic!("Intent is not pending");
+        }
+
+        // Authenticate the oracle/executor
+        intent.oracle_id.require_auth();
+
+        // Transfer locked tokens from contract to recipient
+        let token_client = token::Client::new(&env, &intent.asset);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &intent.recipient,
+            &intent.amount,
+        );
+
+        // Update status and save
+        intent.status = IntentStatus::Executed;
+        env.storage().persistent().set(&DataKey::Intent(intent_id), &intent);
+    }
+
+    pub fn refund_intent(env: Env, intent_id: u64) {
+        let mut intent: Intent = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Intent(intent_id))
+            .unwrap_or_else(|| panic!("Intent not found"));
+
+        if intent.status != IntentStatus::Pending {
+            panic!("Intent is not pending");
+        }
+
+        // Check if expiration time has passed
+        let current_time = env.ledger().timestamp();
+        if current_time < intent.expiration {
+            panic!("Intent has not expired yet");
+        }
+
+        // Transfer tokens back to sender
+        let token_client = token::Client::new(&env, &intent.asset);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &intent.sender,
+            &intent.amount,
+        );
+
+        // Update status and save
+        intent.status = IntentStatus::Refunded;
+        env.storage().persistent().set(&DataKey::Intent(intent_id), &intent);
+    }
 }
 
 mod test;
