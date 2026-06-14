@@ -6,178 +6,70 @@
 
 ## 🧠 Overview
 
-EpochSend is an intent-based payment protocol on **Stellar** that allows users to define conditions under which funds are automatically executed on-chain.
+EpochSend is a conditional payment protocol built on Stellar. It lets users define off-chain rules for how and when money moves on-chain.
 
-Instead of sending money immediately, users define rules such as:
-
-- “Send when delivery is confirmed”
-- “Pay every Friday”
-- “Release funds after milestone completion”
-
-The system converts user intent into enforceable on-chain payment logic using **Soroban smart contracts**.
+Instead of immediate payments, funds are locked in a Soroban smart contract. The contract will only release them to the recipient when a specific off-chain event (like a delivery API webhook, database change, or external invoice trigger) is verified by our Express oracle backend.
 
 ---
 
 ## 🎯 Problem Statement
 
-Payments today are:
-
-- Manual
-- Trust-based
-- Non-conditional
-
-Users often rely on:
-
-- Verbal agreements, manual follow-ups, and third-party intermediaries — creating friction, disputes, and inefficiency.
+Traditional escrows are manual and slow. Blockchains are completely isolated and cannot read Web2 API webhooks on their own. EpochSend bridges this gap. It connects standard Web2 event webhooks directly to Soroban smart contract escrows.
 
 ---
 
-## 💡 Solution
+## 💡 The Solution
 
-Enable programmable payments based on conditions on the Stellar network.
-
-Users define:
-
+Enable programmable payments based on off-chain conditions. 
+Senders specify:
 - Recipient
-- Amount
-- Trigger condition
+- Asset type & Amount
+- `oracle_id` (the address of the verification service)
+- `expiration` (dispute timeout)
 
-The protocol:
-
-- Holds funds in escrow (Soroban contract)
-- Monitors condition
-- Executes payment automatically
+The protocol locks funds in a Soroban smart contract, waits for the oracle to sign and submit a release transaction (`execute_intent`), or lets the sender claim a refund (`refund_intent`) if the event never happens before the expiration time.
 
 ---
 
-## 🧩 Core Features
+## 🧩 Core Features (Soroban Contract)
 
-### 1. Conditional Payment Contracts (Soroban)
+### 1. Locked Intents
+* Funds are safely held in persistent storage under a unique intent counter.
+* The contract is non-custodial and secure.
 
-- Create payment with condition
-- Funds locked in escrow
-- Executes when condition is met
+### 2. Designate Oracle
+* Senders define the specific oracle address (`oracle_id`) allowed to trigger the payment release.
 
----
-
-### 2. Supported Conditions (MVP)
-
-#### Time-based
-
-- Execute at timestamp
-- Recurring payments (weekly/monthly)
-
-#### Manual Trigger (trusted party)
-
-- Recipient confirms delivery
-- Multi-party approval
-
-#### Oracle-based (Phase 2)
-
-- GPS/location verification
-- API-based triggers (via Soroban-compatible oracles)
-
----
-
-### 3. Payment Types
-
-- One-time conditional payments
-- Recurring subscriptions
-- Group contributions (threshold unlock)
-
----
-
-### 4. Escrow System
-
-- Funds locked in Soroban smart contract
-- Refund logic if condition fails
-- Optional dispute timeout
+### 3. Expiration Time-lock
+* The ledger timestamp is checked to ensure refunds can only occur after the expiration time.
 
 ---
 
 ## 🔁 User Flow
 
-1. User selects “Create Payment”
-2. Inputs:
-   - Amount
-   - Recipient
-   - Condition
-3. Funds are deposited into Soroban contract
-4. Condition monitored
-5. Payment executes automatically on Stellar
+1. Sender connected to Freighter connect creates an intent specifying amount, recipient, oracle, and expiration.
+2. Funds transfer from the sender to the contract.
+3. The Express backend receives an off-chain API webhook.
+4. The backend verifies the webhook, signs a transaction, and calls `execute_intent` on the contract.
+5. The contract transfers the tokens to the recipient.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture (On-chain)
 
-### Smart Contracts (Soroban)
-
-- `PaymentFactory`
-  - Creates new payment contracts
-
-- `ConditionalPayment`
-  - Stores:
-    - Sender
-    - Recipient
-    - Amount
-    - Condition logic
-
----
-
-### Frontend
-
-- Next.js + TypeScript
-- Wallet connection (Freighter Wallet / Stellar SDK)
-- Mobile-first UI
+### Smart Contract (Soroban)
+* `EpochSendContract`
+  * `initialize(env, admin)`: Configures admin controls.
+  * `upgrade(env, new_wasm_hash)`: Upgrades WASM code.
+  * `create_intent(sender, recipient, asset, amount, expiration, oracle_id)`: Locks funds and creates pending intent.
+  * `get_intent(intent_id)`: Queries intent details.
+  * `execute_intent(intent_id)`: Release funds (requires oracle signature).
+  * `refund_intent(intent_id)`: Reclaim funds after expiration.
 
 ---
 
 ## 🔐 Security Considerations
 
-- Reentrancy protection
-- Escrow fund safety
-- Condition validation
-- Timeout fallback logic
-
----
-
-## 📊 Success Metrics
-
-- Number of payments created
-- Total transaction volume (USDC/XLM)
-- Unique users
-- Execution success rate
-
----
-
-## 🚀 Roadmap
-
-### Phase 1 (MVP)
-
-- Time-based payments
-- Manual trigger
-- Simple UI on Stellar
-
-### Phase 2
-
-- Oracle integrations
-- Recurring payments
-- Notifications
-
-### Phase 3
-
-- SDK for developers
-- API integrations
-- Cross-app triggers
-
----
-
-## 🎯 Positioning
-
-A mobile-first payment protocol that transforms user intent into automated financial execution on the Stellar network.
-
----
-
-## 🧠 Key Differentiator
-
-Not just sending money — but defining behavior that money follows.
+- **Strict Authorization:** Only the designated `oracle_id` can trigger `execute_intent`. Only the original `sender` can trigger `refund_intent` (and only after expiration).
+- **Checks-Effects-Interactions:** Intent status changes to `Executed` or `Refunded` *before* the contract transfers tokens, preventing reentrancy attacks.
+- **WASM Upgrades:** Restricts code upgrades to authorized admins.
