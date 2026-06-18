@@ -18,4 +18,4 @@ yarn-error.log*
 /smartcontract/target/
 .soroban/
 test_snapshots/
-**/*.rs.bk
+**/*.rs.bktest_snapshots/

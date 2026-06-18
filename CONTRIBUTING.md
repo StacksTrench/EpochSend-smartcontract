@@ -51,3 +51,6 @@ Read the **Integration Guides** located in the `docs/` directory for detailed se
 ---
 
 _Help us transform payments from manual to intent-based on Stellar!_
+
+### Testing
+When running smart contract tests, snapshot files may be generated in the `test_snapshots/` directory. Please ensure this directory is not committed to version control. It has been added to `.gitignore`.
